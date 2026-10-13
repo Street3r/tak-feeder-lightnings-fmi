@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tak-feeder-lightnings-fmi"
+dynamic = ["version"]
+description = "FMI lightning strikes to TAK"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+authors = [{ name = "Stefan Gofferje" }, { name = "Street3r" }]
+requires-python = ">=3.12"
+dependencies = [
+    "pytak[with-aiohttp]>=7.5.2,<8",
+    "tzdata",
+]
+
+[project.scripts]
+tak-feeder-lightnings-fmi = "tak_feeder_lightnings_fmi.__main__:run"
+
+[tool.setuptools.dynamic]
+version = { attr = "tak_feeder_lightnings_fmi.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json"]

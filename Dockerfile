@@ -1,16 +1,23 @@
-FROM python:3.12-alpine
-
-ENV LANG=C.UTF-8
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV VERSION=20240916205000
-
-
+# Stage 1: build
+FROM python:3.12-slim AS builder
 WORKDIR /app
-COPY requirements.txt ./
-COPY --chmod=777 *.py ./
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+RUN pip install --no-cache-dir --prefix=/install .
 
-RUN pip install --no-cache-dir -r requirements.txt
-
-CMD [ "/usr/local/bin/python", "/app/feed.py" ]
+# Stage 2: runtime
+FROM python:3.12-slim
+LABEL org.opencontainers.image.source="https://github.com/Street3r/tak-feeder-lightnings-fmi" \
+      org.opencontainers.image.description="FMI lightning strikes to TAK" \
+      org.opencontainers.image.licenses="GPL-3.0-or-later"
+COPY --from=builder /install /usr/local
+# Unprivileged user. The certificate and key must be readable by uid 10001,
+# or run the container with user: "0:0" (see README).
+RUN useradd --system --uid 10001 --home-dir /data --no-create-home feeder
+ENV PYTHONUNBUFFERED=1 \
+    HEALTH_FILE=/tmp/tak-feeder-unhealthy
+USER 10001
+WORKDIR /app
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+    CMD ["python", "-c", "import os, sys; sys.exit(os.path.exists(os.environ['HEALTH_FILE']))"]
+ENTRYPOINT ["python", "-m", "tak_feeder_lightnings_fmi"]

@@ -1,8 +1,9 @@
-__pycache__
-venv
-out
-*.ipynb
-.ipnb_checkpoints
-measurements.*
-*.pem
-*.xml
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.env
+certs/
+data/

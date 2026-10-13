@@ -1,70 +1,89 @@
-
-[![Build and publish the container image](https://github.com/sgofferj/tak-feeder-lightnings-fmi/actions/workflows/actions.yml/badge.svg)](https://github.com/sgofferj/tak-feeder-lightnings-fmi/actions/workflows/actions.yml)
-
 # tak-feeder-lightnings-fmi
-Get latest lightning observation data from the Finnish Meteorological Institute and feed them to a TAK server
 
-(C) 2025 Stefan Gofferje
+> [!WARNING]
+> **Work in progress. Not recommended for use.** This fork is being improved
+> and has not been tested against a live TAK server yet. Things may change or
+> break without notice.
 
-Licensed under the GNU General Public License V3 or later.
+Sends the lightning strikes observed by the Finnish Meteorological Institute
+(FMI) to a TAK server as CoT.
 
-## Description
-The Finnish Meteorological Institute provides free API access to the weather data from their sensor network. This container connects to their WFS server,
-downloads the sensor data and sends it to a TAK server. Note that the lightning data is not realtime but about 2 minutes delayed.
+Fork of [sgofferj/tak-feeder-lightnings-fmi](https://github.com/sgofferj/tak-feeder-lightnings-fmi)
+by Stefan Gofferje, with the improvements of his
+[trakbridge-plugin-lightnings-fmi](https://github.com/sgofferj/trakbridge-plugin-lightnings-fmi).
 
-The lightning strikes are displayed as thunderstorm icons with colors depending on the age of the strike:
+## What it sends
 
-| Age | Color |
-|-----|-------|
-| <5min | white |
-| >=5min | yellow |
-| >=15min | orange |
-| >=30min | red    |
-| >=45min | dark red | 
+Every `UPDATE_INTERVAL` seconds the strikes of the last `HISTORY` seconds
+(default 30 minutes) are sent, oldest first so the newest are drawn on top.
 
-The stale time is set to 2x UPDATE_INTERVAL (see below)
+| Field | Value |
+|---|---|
+| UID | `lightning-<time>-<lon>-<lat>` (unchanged from upstream) |
+| Callsign | `FMI Lightning` |
+| Type | `a-o-G` with the thunderstorm icon |
+| Colour by age | white < 5 min, yellow < 15 min, orange < 30 min, red < 45 min, dark red |
+| `ce` | location accuracy (error ellipse) from FMI |
+| Remarks | strike time, peak current, cloud-to-ground or cloud flash, source, `#weather #lightning` |
+
+Ages are counted from FMI's response time, so a wrong local clock does not
+change the colours.
 
 ## Configuration
-The following values are supported and can be provided either as environment variables or through an .env-file.
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
-| COT_URL | empty | (mandatory) TAK server full URL, e.g. ssl://takserver:8089 |
-| HISTORY | 300 | (optional) Wanted lightning history in seconds. Values less than 120 seconds don't get any results. |
-| UPDATE_INTERVAL | 30 | (optional) Interval between data updates - how often should we get data? |
-| PYTAK_TLS_CLIENT_CERT | empty | (mandatory for ssl) User certificate in PEM format |
-| PYTAK_TLS_CLIENT_KEY | empty | (mandatory for ssl) User certificate key file (xxx.key) |
-| PYTAK_TLS_DONT_VERIFY | 1 | (optional) Verify the server certificate (0) or not (1) |
-| TAK_PROTO | 0 | (optional) Choose the protocol (see [PyTAK docs](https://pytak.readthedocs.io/en/stable/configuration/)) |
+|---|---|---|
+| `COT_URL` | `udp://239.2.3.1:6969` | TAK server, e.g. `ssl://takserver:8089` |
+| `PYTAK_TLS_CLIENT_CERT` / `PYTAK_TLS_CLIENT_KEY` | | Client certificate and unencrypted key (PEM) |
+| `PYTAK_TLS_DONT_VERIFY` | `0` | `1` = do not verify the server certificate |
+| `HISTORY` | `1800` | Seconds of history (min 120) |
+| `UPDATE_INTERVAL` | `30` | Seconds between rounds |
+| `FMI_BBOX` | (FMI default area) | `west,south,east,north` |
+| `TIMEZONE` | `Europe/Helsinki` | Time zone of the strike time |
+| `HEALTH_MAX_ERRORS` | `3` | Failed rounds in a row before the container is unhealthy |
+| `DEBUG` | `0` | Debug logging |
 
-## Certificates
-These are the server-issued certificate and key files. Before using, the password needs to be removed from the key file with `openssl rsa -in cert.key -out cert-nopw.key`. OpenSSL will ask for the key password which usually is "atakatak".
+## Running
 
-## Container use
-First, get your certificate and key and copy them to a suitable folder which needs to be added as a volume to the container.
+Image for amd64 and arm64: `ghcr.io/street3r/tak-feeder-lightnings-fmi:latest`.
 
-### Image
-The image is built for AMD64 and ARM64 and pushed to ghcr.io: *ghcr.io/sgofferj/tak-feeder-lightnings-fmi:latest*
-
-### Docker compose
-Here is an example for a docker-compose.yml file:
-```
-version: '2.0'
-
+```yaml
 services:
-  weather-fmi:
-    image: ghcr.io/sgofferj/tak-feeder-lightnings-fmi:latest
-    restart: always
-    networks:
-      - default
+  feeder-lightning:
+    image: ghcr.io/street3r/tak-feeder-lightnings-fmi:latest
+    restart: unless-stopped
+    env_file: .env
     volumes:
-      - <path to data-directory>:/data:ro
-    environment:
-      - COT_URL=ssl://tak-server:8089
-      - PYTAK_TLS_CLIENT_CERT=/data/cert.pem
-      - PYTAK_TLS_CLIENT_KEY=/data/key.pem
-      - PYTAK_TLS_DONT_VERIFY=1
-      - TAK_PROTO=0
+      - ./certs:/data:ro
+```
 
-networks:
-  default:
+The container runs as uid 10001; the key must be readable by it.
+
+## Data
+
+Finnish Meteorological Institute open data,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The source line is
+in every marker's remarks.
+
+## Credits and changes
+
+Original work © Stefan Gofferje:
+[tak-feeder-lightnings-fmi](https://github.com/sgofferj/tak-feeder-lightnings-fmi)
+and [trakbridge-plugin-lightnings-fmi](https://github.com/sgofferj/trakbridge-plugin-lightnings-fmi),
+used with his permission.
+
+Changes in this fork (Street3r):
+
+- 2026-10-13
+  - **Fixed:** an FMI outage stopped the feeder; it now logs and retries.
+  - `fmiopendata` replaced with the WFS parsing of the TrakBridge plugin;
+    requests no longer block.
+  - Ages and colours from FMI's response time; strikes sent oldest first.
+  - Default history 30 minutes (was 5), so the age colours are visible.
+  - Remarks: local strike time, peak current, flash type, `#weather #lightning`.
+    Callsign `FMI Lightning`. Optional area filter.
+  - Health check; unprivileged container; tests and CI.
+
+## License
+
+GNU General Public License v3.0 or later, see [LICENSE](LICENSE).
