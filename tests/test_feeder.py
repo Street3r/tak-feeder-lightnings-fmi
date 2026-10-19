@@ -62,6 +62,32 @@ class LightningTest(unittest.TestCase):
         with mock.patch.object(feeder, "fetch", mock.AsyncMock(side_effect=OSError("x"))):
             self.assertEqual(asyncio.run(src.events()), [])
 
+    def test_new_strikes_at_once_all_every_minute(self) -> None:
+        src = feeder.LightningSource(feeder.Settings())
+        one = SAMPLE.replace(f"62.5 25.7 {T_NEW}".encode(), b"")
+        fake = mock.AsyncMock(return_value=one)
+        with mock.patch.object(feeder, "fetch", fake):
+            self.assertEqual(len(asyncio.run(src.events(0))), 1)
+            self.assertEqual(asyncio.run(src.events(10)), [])  # fetched, nothing new
+            fake.return_value = SAMPLE
+            (new,) = [ET.fromstring(e) for e in asyncio.run(src.events(20))]
+            self.assertEqual(new.find("point").get("lat"), "62.500000")
+            self.assertEqual(asyncio.run(src.events(25)), [])  # no fetch yet
+            self.assertEqual(len(asyncio.run(src.events(60))), 2)  # all again
+        self.assertEqual(fake.await_count, 4)
+
+    def test_stale_ten_minutes(self) -> None:
+        src = feeder.LightningSource(feeder.Settings())
+        with mock.patch.object(feeder, "fetch", mock.AsyncMock(return_value=SAMPLE)):
+            ev = ET.fromstring(asyncio.run(src.events(0))[0])
+        start = datetime.fromisoformat(ev.get("start").replace("Z", "+00:00"))
+        stale = datetime.fromisoformat(ev.get("stale").replace("Z", "+00:00"))
+        self.assertEqual((stale - start).total_seconds(), 600)
+
+    def test_fetch_interval_minimum(self) -> None:
+        with mock.patch.dict("os.environ", {"FETCH_INTERVAL": "2"}, clear=True):
+            self.assertEqual(feeder.Settings.from_env().fetch_interval, 10.0)
+
     def test_empty(self) -> None:
         self.assertEqual(feeder.parse(b"<a/>")[1], [])
 

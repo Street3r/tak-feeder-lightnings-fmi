@@ -14,8 +14,11 @@ by Stefan Gofferje, with the improvements of his
 
 ## What it sends
 
-Every `UPDATE_INTERVAL` seconds the strikes of the last `HISTORY` seconds
-(default 30 minutes) are sent, oldest first so the newest are drawn on top.
+FMI is read every `FETCH_INTERVAL` seconds (default and minimum 10) and new
+strikes are sent at once. Every `SEND_STATIC_INTERVAL` seconds (default 60) all
+strikes of the last `HISTORY` seconds (default 30 minutes) are sent again,
+oldest first so the newest are drawn on top. A strike stays on the map for
+`STALE_SECONDS` (default 600) unless it is sent again.
 
 | Field | Value |
 |---|---|
@@ -37,7 +40,9 @@ change the colours.
 | `PYTAK_TLS_CLIENT_CERT` / `PYTAK_TLS_CLIENT_KEY` | | Client certificate and unencrypted key (PEM) |
 | `PYTAK_TLS_DONT_VERIFY` | `0` | `1` = do not verify the server certificate |
 | `HISTORY` | `1800` | Seconds of history (min 120) |
-| `UPDATE_INTERVAL` | `30` | Seconds between rounds |
+| `FETCH_INTERVAL` | `10` | Seconds between FMI reads, min 10 (about 8,640 of FMI's 20,000 daily requests) |
+| `SEND_STATIC_INTERVAL` | `60` | Seconds between re-sends of all strikes, min 30 (old name `UPDATE_INTERVAL`) |
+| `STALE_SECONDS` | `600` | Marker lifetime; always at least 3 send intervals |
 | `FMI_BBOX` | (FMI default area) | `west,south,east,north` |
 | `TIMEZONE` | `Europe/Helsinki` | Time zone of the strike time |
 | `HEALTH_MAX_ERRORS` | `3` | Failed rounds in a row before the container is unhealthy |
@@ -87,6 +92,9 @@ Changes in this fork (Street3r):
   - Every event of a send round reaches TAK. pytak's send queue holds 100
     events and dropped the oldest when full, so rounds of more than 100
     lost the rest.
+- 2026-10-19
+  - FMI is read every 10 s and new strikes are sent at once; all strikes are
+    re-sent every `SEND_STATIC_INTERVAL` (60 s) and stay on the map for 600 s.
 
 ## License
 
