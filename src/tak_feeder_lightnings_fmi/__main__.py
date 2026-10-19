@@ -22,7 +22,7 @@ async def main() -> None:
     settings = Settings.from_env()
     LOG.info("tak-feeder-lightnings-fmi %s -> %s (history %.0f s)", __version__, tak.cot_url,
              settings.history)
-    await run_feeder(tak, LightningSource(settings, Health()), settings.update_interval)
+    await run_feeder(tak, LightningSource(settings, Health()), min(settings.fetch_interval, settings.send.static))
 
 
 def run() -> None:
