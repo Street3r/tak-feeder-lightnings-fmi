@@ -1,9 +1,8 @@
 # tak-feeder-lightnings-fmi
 
-> [!WARNING]
-> **Work in progress. Not recommended for use.** This fork is being improved
-> and has not been tested against a live TAK server yet. Things may change or
-> break without notice.
+> [!NOTE]
+> Tested with live data and TAK Server 5.8 (October 2026).
+> Settings and CoT details may still change.
 
 Sends the lightning strikes observed by the Finnish Meteorological Institute
 (FMI) to a TAK server as CoT.
