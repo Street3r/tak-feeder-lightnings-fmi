@@ -28,7 +28,7 @@ NS = {
     "swe": "http://www.opengis.net/swe/2.0",
 }
 ICON = "ad78aafb-83a6-4c07-b2b9-a897a8b6a38f/Shapes/thunderstorm.png"
-# Eetu's choice 2026-10-18: strikes every 10 s, valid for 10 minutes. 8,640
+# Chosen 2026-10-18: strikes every 10 s, valid for 10 minutes. 8,640
 # requests a day of the shared FMI quota (20,000).
 MIN_FETCH_INTERVAL = 10.0
 DEFAULT_STALE = 600.0
